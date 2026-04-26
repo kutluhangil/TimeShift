@@ -25,12 +25,17 @@ interface PolaroidCardProps {
 }
 
 const LoadingSpinner = () => (
-    <div className="flex flex-col items-center justify-center h-full bg-neutral-900/80 backdrop-blur-sm z-10 absolute inset-0 text-white">
-        <svg className="animate-spin h-10 w-10 text-yellow-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span className="font-semibold text-xl tracking-wider animate-pulse text-yellow-400">Developing...</span>
+    <div className="flex flex-col items-center justify-center h-full bg-neutral-900 z-10 absolute inset-0 text-white overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-amber-500/20 blur-2xl rounded-full animate-pulse"></div>
+        
+        <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+            <div className="absolute inset-0 border-[3px] border-amber-500/30 rounded-full border-dashed animate-[spin_4s_linear_infinite]"></div>
+            <div className="absolute inset-2 border-[2px] border-amber-400/50 rounded-full border-t-transparent animate-[spin_2s_linear_infinite_reverse]"></div>
+            <div className="absolute inset-4 border-[2px] border-amber-300 rounded-full border-b-transparent animate-[spin_1s_linear_infinite]"></div>
+        </div>
+        <span className="font-medium text-lg tracking-[0.2em] uppercase text-amber-500 animate-pulse drop-shadow-[0_0_10px_rgba(245,158,11,0.6)]">Time Shifting</span>
+        
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] pointer-events-none opacity-30"></div>
     </div>
 );
 

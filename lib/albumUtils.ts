@@ -14,7 +14,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
-export type AlbumLayout = 'grid' | 'collage' | 'single-column';
 export type ImageEffect = 'none' | 'vintage' | 'bw' | 'sepia';
 
 export async function createThumbnail(dataUrl: string, maxDim: number = 800): Promise<string> {
@@ -61,21 +60,12 @@ export function getFilterString(effect: ImageEffect): string {
 export async function createAlbumPage(
     imageData: Record<string, string>, 
     onProgress?: (progress: number) => void,
-    layout: AlbumLayout = 'grid',
     effect: ImageEffect = 'none'
 ): Promise<string> {
     const canvas = document.createElement('canvas');
-    let canvasWidth = 2480;
-    let canvasHeight = 3508;
-
+    let canvasWidth = 1400;
     const decadesCount = Object.keys(imageData).length;
-    if (layout === 'single-column') {
-        canvasWidth = 1400;
-        canvasHeight = 600 + (decadesCount * 1200);
-    } else if (layout === 'collage') {
-        canvasWidth = 2480;
-        canvasHeight = 2480;
-    }
+    let canvasHeight = 500 + (decadesCount * 1300) + 200;
 
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
@@ -98,19 +88,11 @@ export async function createAlbumPage(
     ctx.fillStyle = '#333';
     ctx.textAlign = 'center';
 
-    if (layout === 'single-column') {
-        ctx.font = `bold 100px 'Inter', sans-serif`;
-        ctx.fillText('Generated with TimeShift', canvasWidth / 2, 250);
-        ctx.font = `50px 'Inter', sans-serif`;
-        ctx.fillStyle = '#666';
-        ctx.fillText('on Google AI Studio', canvasWidth / 2, 330);
-    } else {
-        ctx.font = `bold 120px 'Inter', sans-serif`;
-        ctx.fillText('Generated with TimeShift', canvasWidth / 2, 150);
-        ctx.font = `60px 'Inter', sans-serif`;
-        ctx.fillStyle = '#666';
-        ctx.fillText('on Google AI Studio', canvasWidth / 2, 240);
-    }
+    ctx.font = `bold 100px 'Inter', sans-serif`;
+    ctx.fillText('Generated with TimeShift', canvasWidth / 2, 250);
+    ctx.font = `50px 'Inter', sans-serif`;
+    ctx.fillStyle = '#666';
+    ctx.fillText('on Google AI Studio', canvasWidth / 2, 330);
 
     if (onProgress) onProgress(20);
 
@@ -126,48 +108,19 @@ export async function createAlbumPage(
         img: loadedImages[index],
     }));
 
-    const contentTopMargin = layout === 'single-column' ? 400 : 350;
+    const contentTopMargin = 500;
     
-    const grid = { cols: 2, rows: Math.ceil(imagesWithDecades.length / 2), padding: 100 };
-    const contentHeight = canvasHeight - contentTopMargin;
-    const cellWidth = (canvasWidth - grid.padding * (grid.cols + 1)) / grid.cols;
-    const cellHeight = (contentHeight - grid.padding * (grid.rows + 1)) / grid.rows;
+    const polaroidWidth = 800;
+    const polaroidHeight = polaroidWidth * 1.2; // 960
 
-    const maxPolaroidWidth = cellWidth * 0.9;
-    
-    const maxPolaroidHeight = cellHeight * 0.9;
+    const imageContainerWidth = polaroidWidth * 0.9; // 720
+    const imageContainerHeight = imageContainerWidth; // 720
 
-    let polaroidWidth = layout === 'single-column' ? 800 : maxPolaroidWidth;
-    if (layout === 'collage') polaroidWidth = 800;
-    
-    let polaroidHeight = polaroidWidth * 1.2;
-
-    const imageContainerWidth = polaroidWidth * 0.9;
-    const imageContainerHeight = imageContainerWidth;
-
-    const reversedImages = [...imagesWithDecades].reverse();
-    reversedImages.forEach(({ decade, img }, reversedIndex) => {
-        const index = imagesWithDecades.length - 1 - reversedIndex;
-
-        let x = 0, y = 0, rotation = 0;
-
-        if (layout === 'grid') {
-            const row = Math.floor(index / grid.cols);
-            const col = index % grid.cols;
-            x = grid.padding * (col + 1) + cellWidth * col + (cellWidth - polaroidWidth) / 2;
-            y = contentTopMargin + grid.padding * (row + 1) + cellHeight * row + (cellHeight - polaroidHeight) / 2;
-            rotation = (Math.random() - 0.5) * 0.1;
-        } else if (layout === 'single-column') {
-            x = (canvasWidth - polaroidWidth) / 2;
-            y = contentTopMargin + (index * 1200);
-            rotation = (Math.random() - 0.5) * 0.05;
-        } else if (layout === 'collage') {
-            const marginX = 200;
-            const marginY = contentTopMargin + 200;
-            x = marginX + Math.random() * (canvasWidth - polaroidWidth - marginX * 2);
-            y = marginY + Math.random() * (canvasHeight - polaroidHeight - contentTopMargin - 400);
-            rotation = (Math.random() - 0.5) * 0.4;
-        }
+    // Do NOT reverse images to keep them in chronological order
+    imagesWithDecades.forEach(({ decade, img }, index) => {
+        let x = (canvasWidth - polaroidWidth) / 2;
+        let y = contentTopMargin + (index * 1300);
+        let rotation = (Math.random() - 0.5) * 0.05;
         
         ctx.save();
         

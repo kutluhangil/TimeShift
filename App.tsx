@@ -6,7 +6,7 @@ import React, { useState, ChangeEvent, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateDecadeImage, analyzeCharacterFeatures } from './services/geminiService';
 import PolaroidCard from './components/PolaroidCard';
-import { createAlbumPage, AlbumLayout, ImageEffect } from './lib/albumUtils';
+import { createAlbumPage, ImageEffect } from './lib/albumUtils';
 import Footer from './components/Footer';
 import LandingPage from './components/LandingPage';
 import { playClickSound, playUploadSound, playShutterSound, playSuccessSound, playRegenerateSound } from './lib/sounds';
@@ -14,16 +14,31 @@ import { Volume2, VolumeX, Settings, X } from 'lucide-react';
 import { createThumbnail } from './lib/albumUtils';
 import { setMuted } from './lib/sounds';
 
-const DECADES = ['1950s', '1960s', '1970s', '1980s', '1990s', '2000s'];
+const DECADES = [
+    '1920s Flapper', 
+    '1930s Great Depression', 
+    '1940s Wartime', 
+    '1950s Classic', 
+    '1960s Psychedelic', 
+    '1970s Disco', 
+    '1980s Neon', 
+    '1990s Grunge', 
+    '2000s Y2K',
+    '2010s Early Digital'
+];
 
 // Pre-defined positions for a scattered look on desktop
 const POSITIONS = [
-    { top: '5%', left: '10%', rotate: -8 },
-    { top: '15%', left: '60%', rotate: 5 },
-    { top: '45%', left: '5%', rotate: 3 },
-    { top: '2%', left: '35%', rotate: 10 },
-    { top: '40%', left: '70%', rotate: -12 },
-    { top: '50%', left: '38%', rotate: -3 },
+    { top: '2%', left: '10%', rotate: -8 },
+    { top: '5%', left: '40%', rotate: 5 },
+    { top: '15%', left: '70%', rotate: -3 },
+    { top: '40%', left: '5%', rotate: 3 },
+    { top: '45%', left: '35%', rotate: -10 },
+    { top: '50%', left: '65%', rotate: 8 },
+    { top: '80%', left: '15%', rotate: -5 },
+    { top: '85%', left: '55%', rotate: 12 },
+    { top: '25%', left: '20%', rotate: -15 },
+    { top: '70%', left: '40%', rotate: 20 },
 ];
 
 const GHOST_POLAROIDS_CONFIG = [
@@ -33,6 +48,8 @@ const GHOST_POLAROIDS_CONFIG = [
   { initial: { x: "180%", y: "90%", rotate: -20 }, transition: { delay: 0.8 } },
   { initial: { x: "0%", y: "-200%", rotate: 0 }, transition: { delay: 0.5 } },
   { initial: { x: "100%", y: "150%", rotate: 10 }, transition: { delay: 0.3 } },
+  { initial: { x: "-50%", y: "200%", rotate: -15 }, transition: { delay: 0.7 } },
+  { initial: { x: "200%", y: "0%", rotate: 35 }, transition: { delay: 0.9 } },
 ];
 
 
@@ -41,6 +58,13 @@ interface GeneratedImage {
     status: ImageStatus;
     url?: string;
     error?: string;
+}
+
+export interface SavedProfile {
+    id: string;
+    name: string;
+    imageData: string;
+    characterDescription: string;
 }
 
 const primaryButtonClasses = "relative px-8 py-4 bg-white text-black font-semibold rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all duration-300";
@@ -61,6 +85,11 @@ const useMediaQuery = (query: string) => {
 };
 
 function App() {
+    const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>(() => {
+        const stored = localStorage.getItem('timeshift_profiles');
+        return stored ? JSON.parse(stored) : [];
+    });
+    const [profileNameInput, setProfileNameInput] = useState('');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [generatedImages, setGeneratedImages] = useState<Record<string, GeneratedImage>>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -68,8 +97,9 @@ function App() {
     const [downloadProgress, setDownloadProgress] = useState<number>(0);
     const [isSharing, setIsSharing] = useState<boolean>(false);
     const [appState, setAppState] = useState<'landing' | 'idle' | 'image-uploaded' | 'generating' | 'results-shown'>('landing');
-    const [layout, setLayout] = useState<AlbumLayout>('grid');
     const [effect, setEffect] = useState<ImageEffect>('none');
+    const [gifInterval, setGifInterval] = useState<number>(1.0);
+    const [gifSize, setGifSize] = useState<number>(600);
     const [showSettings, setShowSettings] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [characterDescription, setCharacterDescription] = useState<string>('');
@@ -87,6 +117,38 @@ function App() {
     const showToast = (msg: string) => {
         setToastMessage(msg);
         setTimeout(() => setToastMessage(null), 3000);
+    };
+
+    const handleSaveProfile = () => {
+        if (!uploadedImage || !characterDescription || !profileNameInput.trim()) return;
+        
+        // compress image maybe? we'll just save it, assuming user uploads reasonable sizes 
+        // or the browser shrinks it. Actually, `canvas` can be used to shrink it if needed but let's just save.
+        const newProfile: SavedProfile = {
+            id: Date.now().toString(),
+            name: profileNameInput.trim(),
+            imageData: uploadedImage,
+            characterDescription
+        };
+        const updated = [...savedProfiles, newProfile];
+        setSavedProfiles(updated);
+        localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+        setProfileNameInput('');
+        showToast("Profile saved successfully!");
+    };
+
+    const handleLoadProfile = (profile: SavedProfile) => {
+        setUploadedImage(profile.imageData);
+        setCharacterDescription(profile.characterDescription);
+        setAppState('image-uploaded');
+        playUploadSound();
+    };
+
+    const handleDeleteProfile = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const updated = savedProfiles.filter(p => p.id !== id);
+        setSavedProfiles(updated);
+        localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
     };
 
     const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -277,7 +339,7 @@ Character reference: ${characterDescription}
             }
 
             setDownloadProgress(0);
-            const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, layout, effect);
+            const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, effect);
             const thumbnail = await createThumbnail(albumDataUrl);
 
             const res = await fetch("/api/share", {
@@ -317,7 +379,7 @@ Character reference: ${characterDescription}
             }
 
             setDownloadProgress(0);
-            const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, layout, effect);
+            const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, effect);
 
             const link = document.createElement('a');
             link.href = albumDataUrl;
@@ -330,6 +392,40 @@ Character reference: ${characterDescription}
         } catch (error) {
             console.error("Failed to create or download album:", error);
             alert("Sorry, there was an error creating your album. Please try again.");
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress(0);
+        }
+    };
+
+    const handleDownloadGif = async () => {
+        playClickSound();
+        setIsDownloading(true);
+        try {
+            const imageUrls = DECADES.map(decade => generatedImages[decade]?.url).filter(Boolean) as string[];
+            
+            if (imageUrls.length < DECADES.length) {
+                alert("Please wait for all images to finish generating before downloading the GIF.");
+                return;
+            }
+
+            setDownloadProgress(0);
+            
+            // dynamically import gifUtils to avoid loading unused packages
+            const { createGifFromImages } = await import('./lib/gifUtils');
+            const gifDataUrl = await createGifFromImages(imageUrls, setDownloadProgress, gifInterval, gifSize);
+
+            const link = document.createElement('a');
+            link.href = gifDataUrl;
+            link.download = 'timeshift.gif';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            playSuccessSound();
+
+        } catch (error) {
+            console.error("Failed to create or download GIF:", error);
+            alert("Sorry, there was an error creating your GIF. Please try again.");
         } finally {
             setIsDownloading(false);
             setDownloadProgress(0);
@@ -406,15 +502,29 @@ Character reference: ${characterDescription}
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">Album Layout</label>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">GIF Speed (Seconds per Frame)</label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
-                                    value={layout}
-                                    onChange={(e) => setLayout(e.target.value as AlbumLayout)}
+                                    value={gifInterval}
+                                    onChange={(e) => setGifInterval(parseFloat(e.target.value))}
                                 >
-                                    <option value="grid">Classic Grid</option>
-                                    <option value="collage">Scattered Collage</option>
-                                    <option value="single-column">Vertical Stack</option>
+                                    <option value={0.5}>Fast (0.5s)</option>
+                                    <option value={1.0}>Normal (1.0s)</option>
+                                    <option value={1.5}>Slow (1.5s)</option>
+                                    <option value={2.0}>Very Slow (2.0s)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">GIF Resolution</label>
+                                <select 
+                                    className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
+                                    value={gifSize}
+                                    onChange={(e) => setGifSize(parseInt(e.target.value, 10))}
+                                >
+                                    <option value={400}>Small (400x400)</option>
+                                    <option value={600}>Medium (600x600)</option>
+                                    <option value={800}>Large (800x800)</option>
                                 </select>
                             </div>
                         </div>
@@ -484,17 +594,67 @@ Character reference: ${characterDescription}
                             <p className="mt-8 text-neutral-400 text-center max-w-sm text-sm md:text-base leading-relaxed">
                                 Click the polaroid to upload your photo and start your journey through time.
                             </p>
+                            
+                            {savedProfiles.length > 0 && (
+                                <div className="mt-12 w-full max-w-2xl px-4 pointer-events-auto">
+                                    <h3 className="text-xl font-medium text-white mb-4 text-center">Or choose a saved profile</h3>
+                                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+                                        {savedProfiles.map(profile => (
+                                            <div 
+                                                key={profile.id}
+                                                onClick={() => handleLoadProfile(profile)}
+                                                className="snap-center shrink-0 w-32 h-40 bg-white p-2 rounded-sm cursor-pointer shadow-lg transform transition-transform hover:-translate-y-2 hover:shadow-xl group relative"
+                                            >
+                                                <div className="w-full h-24 bg-neutral-200 overflow-hidden relative">
+                                                    <img src={profile.imageData} alt={profile.name} className="w-full h-full object-cover" />
+                                                </div>
+                                                <p className="mt-2 text-center text-black font-medium text-xs truncate uppercase tracking-widest">{profile.name}</p>
+                                                <button 
+                                                    onClick={(e) => handleDeleteProfile(profile.id, e)}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Delete Profile"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
                     </div>
                 )}
 
                 {appState === 'image-uploaded' && uploadedImage && (
-                    <div className="flex flex-col items-center gap-6">
+                    <div className="flex flex-col items-center gap-6 w-full max-w-lg z-20 pointer-events-auto">
                          <PolaroidCard 
                             imageUrl={uploadedImage} 
                             caption="Your Photo" 
                             status="done"
                          />
+                         
+                         {characterDescription && (
+                            <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 backdrop-blur-md">
+                                <p className="text-white/80 text-sm leading-relaxed">{characterDescription}</p>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Profile Name (e.g., Me)" 
+                                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:ring-1 focus:ring-white/30"
+                                        value={profileNameInput}
+                                        onChange={(e) => setProfileNameInput(e.target.value)}
+                                    />
+                                    <button 
+                                        onClick={handleSaveProfile}
+                                        disabled={!profileNameInput.trim()}
+                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                                    >
+                                        Save Profile
+                                    </button>
+                                </div>
+                            </div>
+                         )}
+
                          <div className="flex items-center gap-4 mt-4">
                             <button onClick={handleReset} className={secondaryButtonClasses}>
                                 Different Photo
@@ -570,44 +730,103 @@ Character reference: ${characterDescription}
                             </div>
                             </>
                         )}
-                         <div className="h-20 mt-4 flex flex-col items-center justify-center relative z-20 pointer-events-auto">
-                            {appState === 'results-shown' && (
-                                <div className="flex flex-col items-center gap-4">
-                                    {(isDownloading || isSharing) && downloadProgress > 0 && (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="text-neutral-400 text-sm font-medium tracking-wide">
-                                                {Math.round(downloadProgress)}% Complete
-                                            </div>
-                                            <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                                <div 
-                                                    className="h-full bg-white transition-all duration-300 ease-out shadow-[0_0_10px_white]" 
-                                                    style={{ width: `${downloadProgress}%` }}
-                                                />
-                                            </div>
+                             <div className="h-20 mt-4 flex flex-col items-center justify-center relative z-20 pointer-events-auto w-full max-w-4xl mx-auto">
+                                {appState === 'results-shown' && (
+                                    <div className="flex flex-col items-center gap-6 w-full">
+                                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                                            <button 
+                                                onClick={handleDownloadAlbum} 
+                                                disabled={isDownloading || isSharing} 
+                                                className={`${primaryButtonClasses} px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {isDownloading ? 'Processing...' : 'Save Vertical Album'}
+                                            </button>
+                                            <button 
+                                                onClick={async () => {
+                                                    playClickSound();
+                                                    setIsDownloading(true);
+                                                    try {
+                                                        const { downloadBulkImages } = await import('./lib/zipUtils');
+                                                        const images = DECADES.map(decade => ({
+                                                            decade,
+                                                            url: generatedImages[decade]?.url
+                                                        })).filter(i => i.url) as { decade: string, url: string }[];
+                                                        
+                                                        if (images.length < DECADES.length) {
+                                                            alert("Please wait for all images to finish generating before bulk downloading.");
+                                                            return;
+                                                        }
+                                                        await downloadBulkImages(images);
+                                                        playSuccessSound();
+                                                    } catch (error) {
+                                                        console.error("Failed to download zip", error);
+                                                        alert("Sorry, there was an error creating your zip. Please try again.");
+                                                    } finally {
+                                                        setIsDownloading(false);
+                                                    }
+                                                }}
+                                                disabled={isDownloading || isSharing} 
+                                                className={`${secondaryButtonClasses} bg-white/5 border border-white/10 px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                Download ZIP
+                                            </button>
+                                            <button 
+                                                onClick={handleDownloadGif} 
+                                                disabled={isDownloading || isSharing} 
+                                                className={`${secondaryButtonClasses} bg-white/5 border border-white/10 px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                Save GIF
+                                            </button>
+                                            <button 
+                                                onClick={handleShareAlbum} 
+                                                disabled={isDownloading || isSharing} 
+                                                className={`${secondaryButtonClasses} bg-white/5 border border-white/10 px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {isSharing ? 'Sharing...' : 'Share Web'}
+                                            </button>
+                                            <button onClick={handleReset} className={secondaryButtonClasses} disabled={isDownloading || isSharing}>
+                                                Start Over
+                                            </button>
                                         </div>
-                                    )}
-                                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                                        <button 
-                                            onClick={handleDownloadAlbum} 
-                                            disabled={isDownloading || isSharing} 
-                                            className={`${primaryButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            {isDownloading ? 'Creating Album...' : 'Download Album'}
-                                        </button>
-                                        <button 
-                                            onClick={handleShareAlbum} 
-                                            disabled={isDownloading || isSharing} 
-                                            className={`${primaryButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            {isSharing ? 'Generating Link...' : 'Share Album'}
-                                        </button>
-                                        <button onClick={handleReset} className={secondaryButtonClasses} disabled={isDownloading || isSharing}>
-                                            Start Over
-                                        </button>
+
+                                        {(isDownloading || isSharing) && downloadProgress > 0 && (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="text-neutral-400 text-sm font-medium tracking-wide">
+                                                    {Math.round(downloadProgress)}% Complete
+                                                </div>
+                                                <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-white transition-all duration-300 ease-out shadow-[0_0_10px_white]" 
+                                                        style={{ width: `${downloadProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {characterDescription && !savedProfiles.find(p => p.characterDescription === characterDescription) && (
+                                            <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 backdrop-blur-md mt-4">
+                                                <p className="text-white/60 text-xs font-semibold uppercase tracking-widest text-center">Save This Persona</p>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Profile Name (e.g., Me)" 
+                                                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:ring-1 focus:ring-white/30"
+                                                        value={profileNameInput}
+                                                        onChange={(e) => setProfileNameInput(e.target.value)}
+                                                    />
+                                                    <button 
+                                                        onClick={handleSaveProfile}
+                                                        disabled={!profileNameInput.trim()}
+                                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
                     </>
                 )}
             </div>

@@ -111,8 +111,8 @@ export const DraggableCardBody = ({
         playDragEndSound();
         // We use framer-motion native drag properties below instead of manual animate
       }}
-      dragElastic={0.4}
-      dragTransition={{ bounceStiffness: 200, bounceDamping: 20, timeConstant: 250 }}
+      dragElastic={0.2}
+      dragTransition={{ bounceStiffness: 400, bounceDamping: 15, timeConstant: 250 }}
       style={{
         rotateX,
         rotateY,
