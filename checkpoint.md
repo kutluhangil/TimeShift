@@ -1,28 +1,26 @@
 # TimeShift Validation Checkpoint
 
-## Issues Found
-- **Album Layout Issue**: The generated album images were stacked on top of each other when `createAlbumPage` was invoked, failing to provide a clear timeline or proper formatting.
-- **Unused Configurations**: The `layout` state configuration (`grid`, `collage`, `single-column`) was still passed around even though it was removed from the UI. This led to branching logic in the canvas generation breaking expected behavior.
-- **Missing Bulk Download Option**: Users could only download a full single image stack or a GIF, but not raw photos individually at once.
-- **Environment Variable Standard**: `geminiService.ts` was using `process.env.API_KEY`, but the Google AI Studio standard environment variable is `process.env.GEMINI_API_KEY`.
+## Issues Found & Resolved
+- **Album Layout Issue**: The generated album images were stacked on top of each other. Attempting to generate a multi-image array in `.jpg` failed. Fixed by implementing a "Vertical Timeline Canvas" mode stretching the exact heights chronologically. 
+- **Unused Configurations**: Scraped lingering legacy configurations around Grid/Collage elements that were polluting `albumUtils`.
+- **Typographical Overflow**: Ensured canvas text generation automatically adjusts and responds cleanly to larger amounts of generated images.
 
-## Fixes Applied
-1. **Vertical Timeline Canvas**:
-   - Refactored `lib/albumUtils.ts` to forcefully ignore all previous overlapping collage logic.
-   - Images are now spread evenly in chronological order (top to bottom) starting with an appropriate top margin offset to include the `Generated with TimeShift` title.
-   - Adjusts the canvas height dynamically up to `500 + (number of decades * 1300) + 200` to correctly fit all contents.
-2. **Bulk Download Feature (`ZIP`)**:
-   - Installed `jszip` and `file-saver` libraries.
-   - Added a `downloadBulkImages` utility in `lib/zipUtils.ts` that safely strips out spaces (e.g. `1920s` instead of `1920s Flapper.png`) and bundles generated URL blobs into a `.zip` file natively.
-   - Included a new `Download ZIP` button directly below the canvas.
-3. **API Key Fallback**: Modified `services/geminiService.ts` to support both `process.env.GEMINI_API_KEY` and `process.env.API_KEY` seamlessly.
-4. **Code Cleanup**: Removed all leftover references to `AlbumLayout` states and definitions across `App.tsx` and `albumUtils.ts`.
+## Features Added & Perfected
+1. **Bulk Download Feature (`ZIP`)**:
+   - Installed `jszip` and `file-saver`. Added a `downloadBulkImages` utility and a "Download ZIP" button.
+   - Cleans the file names properly (e.g., `1920s.jpg`, `1950s.jpg`) pulling direct generated URLs.
+2. **GIF Customization Controls**: 
+   - Speed interval (`0.5s` to `2.0s`) and custom resolution sizes (400px - 800px) added to user settings toggles.
+   - `gifUtils` updated to dynamically accept timeline framing constraints.
+3. **Character Profiles ("Save Profile")**:
+   - Users can now save a generated profile name mapping securely to their uploaded photo and character description text inside `localStorage`.
+   - The landing page horizontal scroll interface visually allows quickly picking an earlier profile to skip uploading phases entirely.
+4. **Retro Developing Visuals**: 
+   - A new "Time Shifting" CSS overlay loading effect with glowing, pulsing film-reel aesthetics handles individual polaroid `.gif/.jpg` loads. 
+5. **Decades Expanded**:
+   - Time travel is expanded with `1930s Great Depression`, `1940s Wartime`, `1960s Psychedelic`, and `2010s Early Digital` natively integrated into `App.tsx` arrays and layouts. 
 
-## Improvements
-- Added appropriate `async/await` loading state tracking to the ZIP generation feature to indicate processing time to the user seamlessly.
-- Ensured consistency of typography scaling properly on the final exported polaroid formats.
-- Verified that all responsive breakpoints apply correctly without breaking the `Download ZIP` layout.
-
-## Assumptions
-- Assuming that external blob urls dynamically created by the object URL process (`data:image...`) or the external generative APIs allow fetching via JS natively without CORS blocks (since it's all handled by Gemini locally).
-- Assumed standard `.jpg` extensions for all zip items.
+## Technical Optimizations
+- **API Key Fallback**: Modified `services/geminiService.ts` to support both `process.env.GEMINI_API_KEY` and `process.env.API_KEY` seamlessly.
+- Responsive scaling checked across the result buttons and setting menu inputs.
+- Safe dynamic imports inside `App.tsx` (`gifUtils`, `zipUtils`) to ensure dependencies do not clog early load renders.
