@@ -164,7 +164,29 @@ export async function generateDecadeImage(imageDataUrl: string, prompt: string, 
         } else {
             // This is for other errors, like a final internal server error after retries.
             console.error("An unrecoverable error occurred during image generation.", error);
-            throw new Error(`The AI model failed to generate an image. Details: ${errorMessage}`);
+
+            let specificReason = errorMessage;
+            try {
+                 // The google genai SDK often exposes details on the target or error payload.
+                 const errorObj = error as any;
+                 if (errorObj?.statusText) {
+                     specificReason = errorObj.statusText;
+                 }
+                 if (errorObj?.details) {
+                     specificReason = JSON.stringify(errorObj.details);
+                 }
+                 if (errorMessage.includes('{')) {
+                     const match = errorMessage.match(/\{.*\}/s);
+                     if (match) {
+                         const parsed = JSON.parse(match[0]);
+                         if (parsed?.error?.message) {
+                             specificReason = parsed.error.message;
+                         }
+                     }
+                 }
+            } catch (e) {}
+
+            throw new Error(specificReason);
         }
     }
 }

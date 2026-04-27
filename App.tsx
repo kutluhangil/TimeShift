@@ -10,9 +10,10 @@ import { createAlbumPage, ImageEffect } from './lib/albumUtils';
 import Footer from './components/Footer';
 import LandingPage from './components/LandingPage';
 import { playClickSound, playUploadSound, playShutterSound, playSuccessSound, playRegenerateSound } from './lib/sounds';
-import { Volume2, VolumeX, Settings, X } from 'lucide-react';
+import { Volume2, VolumeX, Settings, X, RotateCcw, Loader2, Edit2 } from 'lucide-react';
 import { createThumbnail } from './lib/albumUtils';
 import { setMuted } from './lib/sounds';
+import { cn } from './lib/utils';
 
 const DECADES = [
     '1920s Flapper', 
@@ -90,12 +91,16 @@ function App() {
         return stored ? JSON.parse(stored) : [];
     });
     const [profileNameInput, setProfileNameInput] = useState('');
+    const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [generatedImages, setGeneratedImages] = useState<Record<string, GeneratedImage>>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isUploading, setIsUploading] = useState<boolean>(false);
+    const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
     const [downloadProgress, setDownloadProgress] = useState<number>(0);
     const [isSharing, setIsSharing] = useState<boolean>(false);
+    const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
     const [appState, setAppState] = useState<'landing' | 'idle' | 'image-uploaded' | 'generating' | 'results-shown'>('landing');
     const [effect, setEffect] = useState<ImageEffect>('none');
     const [gifInterval, setGifInterval] = useState<number>(1.0);
@@ -103,10 +108,18 @@ function App() {
     const [showSettings, setShowSettings] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [characterDescription, setCharacterDescription] = useState<string>('');
+    const [customPrompt, setCustomPrompt] = useState<string>('');
+    const [draggingDecade, setDraggingDecade] = useState<string | null>(null);
+    const [zoomedImage, setZoomedImage] = useState<{url: string, caption: string} | null>(null);
+    const [colorPalette, setColorPalette] = useState<'none' | 'vivid' | 'muted' | 'sepia'>('none');
+    const [aspectRatio, setAspectRatio] = useState<'1:1' | '4:3' | '16:9'>('1:1');
+    const [cardMetadata, setCardMetadata] = useState<Record<string, { date?: string, location?: string, notes?: string }>>({});
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const dragAreaRef = useRef<HTMLDivElement>(null);
     const isMobile = useMediaQuery('(max-width: 768px)');
 
+
+    const [showComparison, setShowComparison] = useState<boolean>(false);
 
     const toggleSound = () => {
         const newSound = !soundEnabled;
@@ -119,27 +132,40 @@ function App() {
         setTimeout(() => setToastMessage(null), 3000);
     };
 
-    const handleSaveProfile = () => {
+    const handleSaveProfile = async () => {
         if (!uploadedImage || !characterDescription || !profileNameInput.trim()) return;
         
-        // compress image maybe? we'll just save it, assuming user uploads reasonable sizes 
-        // or the browser shrinks it. Actually, `canvas` can be used to shrink it if needed but let's just save.
-        const newProfile: SavedProfile = {
-            id: Date.now().toString(),
-            name: profileNameInput.trim(),
-            imageData: uploadedImage,
-            characterDescription
-        };
-        const updated = [...savedProfiles, newProfile];
-        setSavedProfiles(updated);
-        localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
-        setProfileNameInput('');
-        showToast("Profile saved successfully!");
+        setIsSavingProfile(true);
+        
+        // Simulating a brief delay for UX
+        await new Promise(r => setTimeout(r, 600));
+
+        if (loadedProfileId) {
+            const updated = savedProfiles.map(p => p.id === loadedProfileId ? { ...p, name: profileNameInput.trim() } : p);
+            setSavedProfiles(updated);
+            localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+            showToast("Profile name updated!");
+        } else {
+            const newProfile: SavedProfile = {
+                id: Date.now().toString(),
+                name: profileNameInput.trim(),
+                imageData: uploadedImage,
+                characterDescription
+            };
+            const updated = [...savedProfiles, newProfile];
+            setSavedProfiles(updated);
+            localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+            setLoadedProfileId(newProfile.id);
+            showToast("Profile saved successfully!");
+        }
+        setIsSavingProfile(false);
     };
 
     const handleLoadProfile = (profile: SavedProfile) => {
         setUploadedImage(profile.imageData);
         setCharacterDescription(profile.characterDescription);
+        setLoadedProfileId(profile.id);
+        setProfileNameInput(profile.name);
         setAppState('image-uploaded');
         playUploadSound();
     };
@@ -154,16 +180,43 @@ function App() {
     const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             playUploadSound();
+            setIsUploading(true);
             const file = e.target.files[0];
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setUploadedImage(reader.result as string);
+            reader.onloadend = async () => {
+                setIsUploading(false);
+                const imgData = reader.result as string;
+                setUploadedImage(imgData);
                 setAppState('image-uploaded');
                 setGeneratedImages({}); // Clear previous results
                 setCharacterDescription('');
+                setLoadedProfileId(null);
+                setProfileNameInput('');
+                
+                setIsAnalyzing(true);
+                try {
+                    const desc = await analyzeCharacterFeatures(imgData);
+                    setCharacterDescription(desc);
+                } catch (error) {
+                    console.error("Failed to analyze character feature", error);
+                    showToast("Failed to analyze portrait features.");
+                } finally {
+                    setIsAnalyzing(false);
+                }
             };
             reader.readAsDataURL(file);
         }
+    };
+
+    const getGenerationPrompt = (decade: string, desc: string) => {
+        return `Reimagine the exact same person from this photo but in the style of the ${decade}. 
+CRITICAL RULES:
+1. You MUST maintain the person's exact facial identity, bone structure, and facial features.
+Character reference: ${desc}
+2. The person must look like the EXACT SAME INDIVIDUAL, but styled in the ${decade}.
+3. The background MUST be an era-appropriate setting for the ${decade} (e.g., historical architecture, retro interiors, appropriate social scenes, vintage props).
+4. Change their clothing, hairstyle, and the photo's grading/quality to perfectly match the ${decade} aesthetic.
+${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}${colorPalette !== 'none' ? `The overall color palette of the image MUST be ${colorPalette === 'vivid' ? 'highly vivid and saturated' : colorPalette === 'muted' ? 'muted, desaturated, and vintage' : 'sepia-toned with a brown, warm vintage wash'}.\n` : ''}${aspectRatio !== '1:1' ? `The image MUST be composed to fit a ${aspectRatio} aspect ratio perfectly.\n` : ''}The output must be a clean, sharp, photorealistic photograph without borders.`;
     };
 
     const handleGenerateClick = async () => {
@@ -192,13 +245,7 @@ function App() {
 
         const processDecade = async (decade: string) => {
             try {
-                const prompt = `Reimagine the exact same person from this photo but in the style of the ${decade}. 
-CRITICAL RULES:
-1. You MUST maintain the person's exact facial identity, bone structure, and facial features.
-Character reference: ${desc}
-2. The person must look like the EXACT SAME INDIVIDUAL, just styled differently.
-3. Change their clothing, hairstyle, and the photo's grading/quality to perfectly match the ${decade} aesthetic.
-4. The output must be a sharp, photorealistic photograph.`;
+                const prompt = getGenerationPrompt(decade, desc);
                 const resultUrl = await generateDecadeImage(uploadedImage, prompt, desc);
                 setGeneratedImages(prev => ({
                     ...prev,
@@ -249,13 +296,7 @@ Character reference: ${desc}
 
         // Call the generation service for the specific decade
         try {
-            const prompt = `Reimagine the exact same person from this photo but in the style of the ${decade}. 
-CRITICAL RULES:
-1. You MUST maintain the person's exact facial identity, bone structure, and facial features.
-Character reference: ${characterDescription}
-2. The person must look like the EXACT SAME INDIVIDUAL, just styled differently.
-3. Change their clothing, hairstyle, and the photo's grading/quality to perfectly match the ${decade} aesthetic.
-4. The output must be a sharp, photorealistic photograph.`;
+            const prompt = getGenerationPrompt(decade, characterDescription);
             const resultUrl = await generateDecadeImage(uploadedImage, prompt, characterDescription);
             setGeneratedImages(prev => ({
                 ...prev,
@@ -277,11 +318,15 @@ Character reference: ${characterDescription}
         setUploadedImage(null);
         setGeneratedImages({});
         setCharacterDescription('');
+        setCustomPrompt('');
+        setLoadedProfileId(null);
+        setProfileNameInput('');
         setAppState('idle');
     };
 
     const handleDownloadIndividualImage = (decade: string) => {
         playClickSound();
+        if (!window.confirm(`Are you sure you want to download your ${decade} photo?`)) return;
         const image = generatedImages[decade];
         if (image?.status === 'done' && image.url) {
             const link = document.createElement('a');
@@ -364,19 +409,23 @@ Character reference: ${characterDescription}
 
     const handleDownloadAlbum = async () => {
         playClickSound();
+        
+        const imageData = Object.entries(generatedImages)
+            .filter(([, image]) => image.status === 'done' && image.url)
+            .reduce((acc, [decade, image]) => {
+                acc[decade] = image!.url!;
+                return acc;
+            }, {} as Record<string, string>);
+
+        if (Object.keys(imageData).length < DECADES.length) {
+            alert("Please wait for all images to finish generating before downloading the album.");
+            return;
+        }
+
+        if (!window.confirm("Are you sure you want to download the entire album layout?")) return;
+
         setIsDownloading(true);
         try {
-            const imageData = Object.entries(generatedImages)
-                .filter(([, image]) => image.status === 'done' && image.url)
-                .reduce((acc, [decade, image]) => {
-                    acc[decade] = image!.url!;
-                    return acc;
-                }, {} as Record<string, string>);
-
-            if (Object.keys(imageData).length < DECADES.length) {
-                alert("Please wait for all images to finish generating before downloading the album.");
-                return;
-            }
 
             setDownloadProgress(0);
             const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, effect);
@@ -400,14 +449,18 @@ Character reference: ${characterDescription}
 
     const handleDownloadGif = async () => {
         playClickSound();
+        
+        const imageUrls = DECADES.map(decade => generatedImages[decade]?.url).filter(Boolean) as string[];
+        
+        if (imageUrls.length < DECADES.length) {
+            alert("Please wait for all images to finish generating before downloading the GIF.");
+            return;
+        }
+
+        if (!window.confirm("Are you sure you want to download the animated GIF? (This might take a few moments to generate)")) return;
+
         setIsDownloading(true);
         try {
-            const imageUrls = DECADES.map(decade => generatedImages[decade]?.url).filter(Boolean) as string[];
-            
-            if (imageUrls.length < DECADES.length) {
-                alert("Please wait for all images to finish generating before downloading the GIF.");
-                return;
-            }
 
             setDownloadProgress(0);
             
@@ -431,6 +484,25 @@ Character reference: ${characterDescription}
             setDownloadProgress(0);
         }
     };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            
+            if (e.key.toLowerCase() === 's') {
+                if (!isDownloading && !isSharing) handleReset();
+            } else if (e.key.toLowerCase() === 'd') {
+                if (appState === 'results-shown' && !isDownloading && !isSharing) handleDownloadAlbum();
+            } else if (e.key.toLowerCase() === 'r') {
+                if (zoomedImage && zoomedImage.caption !== 'Your Photo' && zoomedImage.caption !== 'Click to begin') {
+                    handleRegenerateDecade(zoomedImage.caption);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [appState, isDownloading, isSharing, zoomedImage]);
 
     if (appState === 'landing') {
         return (
@@ -463,6 +535,7 @@ Character reference: ${characterDescription}
                     onClick={toggleSound}
                     className="p-3 bg-neutral-900 border border-neutral-700/50 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shadow-lg"
                     title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+                    aria-label={soundEnabled ? "Mute sounds" : "Enable sounds"}
                 >
                     {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
                 </button>
@@ -470,6 +543,7 @@ Character reference: ${characterDescription}
                     onClick={() => setShowSettings(true)}
                     className="p-3 bg-neutral-900 border border-neutral-700/50 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shadow-lg"
                     title="Settings"
+                    aria-label="Settings"
                 >
                     <Settings size={24} />
                 </button>
@@ -481,6 +555,7 @@ Character reference: ${characterDescription}
                         <button 
                             onClick={() => setShowSettings(false)}
                             className="absolute top-4 right-4 text-neutral-500 hover:text-white"
+                            aria-label="Close settings"
                         >
                             <X size={20} />
                         </button>
@@ -527,6 +602,43 @@ Character reference: ${characterDescription}
                                     <option value={800}>Large (800x800)</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Color Palette</label>
+                                <select 
+                                    className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
+                                    value={colorPalette}
+                                    onChange={(e) => setColorPalette(e.target.value as any)}
+                                >
+                                    <option value="none">Original/Natural</option>
+                                    <option value="vivid">Vivid</option>
+                                    <option value="muted">Muted</option>
+                                    <option value="sepia">Sepia Toned</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Aspect Ratio</label>
+                                <select 
+                                    className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
+                                    value={aspectRatio}
+                                    onChange={(e) => setAspectRatio(e.target.value as any)}
+                                >
+                                    <option value="1:1">Square (1:1)</option>
+                                    <option value="4:3">Portrait (4:3)</option>
+                                    <option value="16:9">Widescreen (16:9)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Custom Generation Prompt (Optional)</label>
+                                <textarea
+                                    className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all resize-none"
+                                    placeholder="e.g. In a cyberpunk futuristic city, holding a glowing orb"
+                                    value={customPrompt}
+                                    onChange={(e) => setCustomPrompt(e.target.value)}
+                                    rows={3}
+                                />
+                            </div>
                         </div>
 
                         <button 
@@ -540,7 +652,7 @@ Character reference: ${characterDescription}
             )}
             
             <div className="z-10 flex flex-col items-center justify-center w-full h-full flex-1 min-h-0 pt-8 mt-12 md:mt-0">
-                <div className="text-center mb-10">
+                <div className="text-center mb-10 p-6 rounded-2xl backdrop-blur-md bg-black/20 border border-white/5 inline-block w-fit mx-auto max-w-xl">
                    <motion.h1 
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -584,13 +696,13 @@ Character reference: ${characterDescription}
                              transition={{ delay: 2, duration: 0.8, type: 'spring' }}
                              className="flex flex-col items-center"
                         >
-                            <label htmlFor="file-upload" className="cursor-pointer group transform hover:scale-105 transition-transform duration-300">
+                            <label htmlFor="file-upload" className={cn("cursor-pointer group transform transition-transform duration-300", !isUploading && "hover:scale-105")}>
                                  <PolaroidCard 
-                                     caption="Click to begin"
-                                     status="done"
+                                     caption={isUploading ? "Uploading..." : "Click to begin"}
+                                     status={isUploading ? "pending" : "done"}
                                  />
                             </label>
-                            <input id="file-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} />
+                            <input id="file-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} disabled={isUploading} />
                             <p className="mt-8 text-neutral-400 text-center max-w-sm text-sm md:text-base leading-relaxed">
                                 Click the polaroid to upload your photo and start your journey through time.
                             </p>
@@ -613,8 +725,17 @@ Character reference: ${characterDescription}
                                                     onClick={(e) => handleDeleteProfile(profile.id, e)}
                                                     className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                                     title="Delete Profile"
+                                                    aria-label={`Delete profile ${profile.name}`}
                                                 >
                                                     <X size={14} />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleLoadProfile(profile); }}
+                                                    className="absolute -top-2 right-6 bg-blue-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Edit Profile"
+                                                    aria-label={`Edit profile ${profile.name}`}
+                                                >
+                                                    <Edit2 size={12} />
                                                 </button>
                                             </div>
                                         ))}
@@ -633,6 +754,13 @@ Character reference: ${characterDescription}
                             status="done"
                          />
                          
+                         {isAnalyzing && (
+                            <div className="flex items-center gap-3 text-neutral-300 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
+                                <Loader2 size={18} className="animate-spin text-amber-500" />
+                                <span className="text-sm font-medium tracking-wide">Analyzing subjects...</span>
+                            </div>
+                         )}
+
                          {characterDescription && (
                             <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 backdrop-blur-md">
                                 <p className="text-white/80 text-sm leading-relaxed">{characterDescription}</p>
@@ -646,10 +774,12 @@ Character reference: ${characterDescription}
                                     />
                                     <button 
                                         onClick={handleSaveProfile}
-                                        disabled={!profileNameInput.trim()}
-                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                                        disabled={!profileNameInput.trim() || isSavingProfile}
+                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[120px]"
                                     >
-                                        Save Profile
+                                        {isSavingProfile ? (
+                                            <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
+                                        ) : loadedProfileId ? "Update Name" : "Save Profile"}
                                     </button>
                                 </div>
                             </div>
@@ -678,7 +808,7 @@ Character reference: ${characterDescription}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ type: 'spring', stiffness: 100, damping: 20, delay: index * 0.1 }}
                                     >
-                                         <PolaroidCard
+                                        <PolaroidCard
                                             caption={decade}
                                             status={generatedImages[decade]?.status || 'pending'}
                                             imageUrl={generatedImages[decade]?.url}
@@ -686,8 +816,12 @@ Character reference: ${characterDescription}
                                             onShake={handleRegenerateDecade}
                                             onDownload={handleDownloadIndividualImage}
                                             onShare={handleShareIndividualImage}
+                                            onZoom={(url, caption) => setZoomedImage({url, caption})}
                                             isMobile={isMobile}
                                             effect={effect}
+                                            aspectRatio={aspectRatio}
+                                            progressPlaceholderUrl={uploadedImage}
+                                            metadata={cardMetadata[decade]}
                                         />
                                     </motion.div>
                                 ))}
@@ -721,8 +855,16 @@ Character reference: ${characterDescription}
                                                 onShake={handleRegenerateDecade}
                                                 onDownload={handleDownloadIndividualImage}
                                                 onShare={handleShareIndividualImage}
+                                                onZoom={(url, caption) => setZoomedImage({url, caption})}
                                                 isMobile={isMobile}
                                                 effect={effect}
+                                                dragSnapToOrigin={false}
+                                                onDragStartApp={() => setDraggingDecade(decade)}
+                                                onDragEndApp={() => setDraggingDecade(null)}
+                                                isDimmed={draggingDecade !== null && draggingDecade !== decade}
+                                                aspectRatio={aspectRatio}
+                                                progressPlaceholderUrl={uploadedImage}
+                                                metadata={cardMetadata[decade]}
                                             />
                                         </motion.div>
                                     );
@@ -739,23 +881,27 @@ Character reference: ${characterDescription}
                                                 disabled={isDownloading || isSharing} 
                                                 className={`${primaryButtonClasses} px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
                                             >
-                                                {isDownloading ? 'Processing...' : 'Save Vertical Album'}
+                                                {isDownloading ? 'Processing...' : 'Save Album'}
                                             </button>
                                             <button 
                                                 onClick={async () => {
                                                     playClickSound();
+                                                    
+                                                    const images = DECADES.map(decade => ({
+                                                        decade,
+                                                        url: generatedImages[decade]?.url
+                                                    })).filter(i => i.url) as { decade: string, url: string }[];
+                                                    
+                                                    if (images.length < DECADES.length) {
+                                                        alert("Please wait for all images to finish generating before bulk downloading.");
+                                                        return;
+                                                    }
+
+                                                    if (!window.confirm("Are you sure you want to download all original photos as a ZIP archive?")) return;
+
                                                     setIsDownloading(true);
                                                     try {
                                                         const { downloadBulkImages } = await import('./lib/zipUtils');
-                                                        const images = DECADES.map(decade => ({
-                                                            decade,
-                                                            url: generatedImages[decade]?.url
-                                                        })).filter(i => i.url) as { decade: string, url: string }[];
-                                                        
-                                                        if (images.length < DECADES.length) {
-                                                            alert("Please wait for all images to finish generating before bulk downloading.");
-                                                            return;
-                                                        }
                                                         await downloadBulkImages(images);
                                                         playSuccessSound();
                                                     } catch (error) {
@@ -775,7 +921,7 @@ Character reference: ${characterDescription}
                                                 disabled={isDownloading || isSharing} 
                                                 className={`${secondaryButtonClasses} bg-white/5 border border-white/10 px-6 py-3 whitespace-nowrap text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
                                             >
-                                                Save GIF
+                                                Download GIF
                                             </button>
                                             <button 
                                                 onClick={handleShareAlbum} 
@@ -784,7 +930,8 @@ Character reference: ${characterDescription}
                                             >
                                                 {isSharing ? 'Sharing...' : 'Share Web'}
                                             </button>
-                                            <button onClick={handleReset} className={secondaryButtonClasses} disabled={isDownloading || isSharing}>
+                                            <button onClick={handleReset} className={`${secondaryButtonClasses} !border-red-500/50 hover:!bg-red-500/10 text-red-100 flex items-center justify-center gap-2`} disabled={isDownloading || isSharing}>
+                                                <RotateCcw size={16} />
                                                 Start Over
                                             </button>
                                         </div>
@@ -816,10 +963,10 @@ Character reference: ${characterDescription}
                                                     />
                                                     <button 
                                                         onClick={handleSaveProfile}
-                                                        disabled={!profileNameInput.trim()}
-                                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                                                        disabled={!profileNameInput.trim() || isSavingProfile}
+                                                        className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[80px]"
                                                     >
-                                                        Save
+                                                        {isSavingProfile ? <Loader2 size={16} className="animate-spin" /> : 'Save'}
                                                     </button>
                                                 </div>
                                             </div>
@@ -831,6 +978,115 @@ Character reference: ${characterDescription}
                 )}
             </div>
             <Footer />
+            <AnimatePresence>
+                {zoomedImage && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setZoomedImage(null)}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative max-w-5xl w-full max-h-[90vh] flex flex-col md:flex-row items-center justify-center gap-8"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="flex flex-col md:flex-row gap-4 items-center">
+                                    {showComparison && uploadedImage && (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <p className="text-white/60 text-sm uppercase tracking-wider">Original</p>
+                                            <img 
+                                                src={uploadedImage} 
+                                                alt="Original" 
+                                                className="w-auto h-auto max-w-[80vw] md:max-w-[40vw] max-h-[35vh] md:max-h-[70vh] object-contain rounded-sm shadow-2xl opacity-80"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col items-center gap-2">
+                                        {showComparison && <p className="text-white/60 text-sm uppercase tracking-wider">Generated</p>}
+                                        <img 
+                                            src={zoomedImage.url} 
+                                            alt={zoomedImage.caption} 
+                                            className={cn("w-auto h-auto max-w-full object-contain rounded-sm shadow-2xl", showComparison ? "max-h-[35vh] md:max-h-[70vh] max-w-[80vw] md:max-w-[40vw]" : "max-h-[70vh]")}
+                                        />
+                                    </div>
+                                </div>
+                                {!showComparison && <p className="text-white text-xl md:text-2xl font-medium tracking-widest uppercase">{zoomedImage.caption}</p>}
+                            </div>
+                            
+                            <div className="flex flex-col gap-4 bg-neutral-900/80 p-6 rounded-xl border border-white/10 w-full max-w-sm shrink-0">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-white/80 uppercase tracking-widest text-sm font-semibold">Photo Metadata</h3>
+                                    {uploadedImage && (
+                                        <button 
+                                            onClick={() => setShowComparison(!showComparison)}
+                                            className="text-xs text-amber-500 hover:text-amber-400 border border-amber-500/30 hover:border-amber-400/50 px-2 py-1 rounded transition-colors"
+                                        >
+                                            {showComparison ? 'Hide Original' : 'Compare Original'}
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs text-neutral-400 block mb-1">Date</label>
+                                        <input 
+                                            type="text"
+                                            placeholder="e.g., Summer 1985"
+                                            className="w-full bg-black/50 border border-neutral-700 rounded-md px-3 py-2 text-white text-sm focus:ring-1 focus:ring-white/30 outline-none"
+                                            value={cardMetadata[zoomedImage.caption]?.date || ''}
+                                            onChange={e => setCardMetadata(prev => ({
+                                                ...prev,
+                                                [zoomedImage.caption]: { ...prev[zoomedImage.caption], date: e.target.value }
+                                            }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-neutral-400 block mb-1">Location</label>
+                                        <input 
+                                            type="text"
+                                            placeholder="e.g., Paris, France"
+                                            className="w-full bg-black/50 border border-neutral-700 rounded-md px-3 py-2 text-white text-sm focus:ring-1 focus:ring-white/30 outline-none"
+                                            value={cardMetadata[zoomedImage.caption]?.location || ''}
+                                            onChange={e => setCardMetadata(prev => ({
+                                                ...prev,
+                                                [zoomedImage.caption]: { ...prev[zoomedImage.caption], location: e.target.value }
+                                            }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-neutral-400 block mb-1">Notes</label>
+                                        <textarea 
+                                            placeholder="Memory details..."
+                                            className="w-full bg-black/50 border border-neutral-700 rounded-md px-3 py-2 text-white text-sm focus:ring-1 focus:ring-white/30 outline-none resize-none h-24"
+                                            value={cardMetadata[zoomedImage.caption]?.notes || ''}
+                                            onChange={e => setCardMetadata(prev => ({
+                                                ...prev,
+                                                [zoomedImage.caption]: { ...prev[zoomedImage.caption], notes: e.target.value }
+                                            }))}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button
+                                onClick={() => setZoomedImage(null)}
+                                className="absolute top-0 right-0 p-3 m-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full transition-all"
+                                aria-label="Close zoomed image"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         </main>
     );
 }

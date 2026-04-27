@@ -22,12 +22,16 @@ export const DraggableCardBody = ({
   dragConstraintsRef,
   onDrag,
   onDragStart,
+  onDragEnd,
+  dragSnapToOrigin = true,
 }: {
   className?: string;
   children?: React.ReactNode;
   dragConstraintsRef?: React.RefObject<HTMLElement>;
   onDrag?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
   onDragStart?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
+  onDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
+  dragSnapToOrigin?: boolean;
 }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -91,7 +95,7 @@ export const DraggableCardBody = ({
     <motion.div
       ref={cardRef}
       drag
-      dragSnapToOrigin={true}
+      dragSnapToOrigin={dragSnapToOrigin}
       dragConstraints={dragConstraintsRef}
       onDrag={onDrag}
       onDragStart={(event, info) => {
@@ -109,6 +113,7 @@ export const DraggableCardBody = ({
         document.body.style.cursor = "default";
         if (navigator.vibrate) navigator.vibrate(5);
         playDragEndSound();
+        onDragEnd?.(event, info);
         // We use framer-motion native drag properties below instead of manual animate
       }}
       dragElastic={0.2}
@@ -122,7 +127,7 @@ export const DraggableCardBody = ({
       animate={controls}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98, cursor: 'grabbing' }}
-      whileDrag={{ scale: 1.08, cursor: 'grabbing', zIndex: 100, boxShadow: "0px 30px 60px -15px rgba(250, 204, 21, 0.4)", outline: "2px solid rgba(250, 204, 21, 0.5)", filter: "sepia(0.2) drop-shadow(0 0 1rem rgba(250, 204, 21, 0.3))" }}
+      whileDrag={{ scale: 1.08, rotate: 3, cursor: 'grabbing', zIndex: 100, boxShadow: "0px 40px 80px -15px rgba(250, 204, 21, 0.5)", outline: "2px solid rgba(250, 204, 21, 0.5)", filter: "sepia(0.2) drop-shadow(0 0 1rem rgba(250, 204, 21, 0.3))" }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className={cn(

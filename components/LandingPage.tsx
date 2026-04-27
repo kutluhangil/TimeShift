@@ -71,11 +71,23 @@ export default function LandingPage({ onStart }: LandingPageProps) {
                transition={{ type: "spring", stiffness: 120, damping: 20 }}
                className="absolute inset-0 bg-neutral-100 p-4 pb-12 shadow-2xl rounded-sm flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20"
             >
-               <div className="w-full relative bg-neutral-900 flex-1 overflow-hidden flex items-center justify-center border border-neutral-300 shadow-inner">
+               <motion.div 
+                  className="w-full relative bg-neutral-900 flex-1 overflow-hidden flex items-center justify-center border border-neutral-300 shadow-inner"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: 1.1 }}
+                  transition={{ duration: 2.5, ease: "linear" }}
+               >
                   {/* Subtle placeholder icon representing a portrait */}
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-neutral-700/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <motion.svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-24 w-24 text-neutral-700/50" 
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}
+                    initial={{ y: 0 }}
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  </motion.svg>
                   
                   {/* Era-specific tint effect overlay */}
                   <div className={`absolute inset-0 mix-blend-overlay opacity-40 transition-colors duration-1000 ${
@@ -89,7 +101,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
                   
                   {/* Film grain effect */}
                   <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiAvPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIiAvPgo8L3N2Zz4=')]"></div>
-               </div>
+               </motion.div>
                <div className="absolute bottom-4 left-0 w-full text-center font-permanent-marker text-xl text-neutral-800">
                   {currentEra}
                </div>
@@ -102,6 +114,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
           onClick={onStart}
+          aria-label="Start Your Journey"
           className="group relative px-8 py-4 bg-white text-black font-semibold rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all duration-300"
         >
           <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
