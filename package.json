@@ -16,6 +16,7 @@
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.12",
     "gifshot": "^0.4.5",
+    "idb-keyval": "^6.2.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.11.0",
     "react": "^19.1.1",

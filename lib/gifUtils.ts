@@ -1,4 +1,4 @@
-import gifshot from 'gifshot';
+import GifWorker from './gifWorker?worker';
 
 export async function createGifFromImages(
     imageUrls: string[], 
@@ -7,21 +7,25 @@ export async function createGifFromImages(
     size: number = 600
 ): Promise<string> {
     return new Promise((resolve, reject) => {
-        gifshot.createGIF({
-            images: imageUrls,
-            gifWidth: size,
-            gifHeight: size,
-            interval: interval, 
-            numFrames: imageUrls.length,
-            progressCallback: (captureProgress: number) => {
-                if (onProgress) onProgress(captureProgress * 100);
+        const worker = new GifWorker();
+        
+        worker.onmessage = (e) => {
+            if (e.data.type === 'progress' && onProgress) {
+                onProgress(e.data.progress);
+            } else if (e.data.type === 'success') {
+                worker.terminate();
+                resolve(e.data.image);
+            } else if (e.data.type === 'error') {
+                worker.terminate();
+                reject(new Error(e.data.error));
             }
-        }, function (obj: any) {
-            if (!obj.error) {
-                resolve(obj.image);
-            } else {
-                reject(obj.error);
-            }
-        });
+        };
+        
+        worker.onerror = (err) => {
+            worker.terminate();
+            reject(err);
+        };
+        
+        worker.postMessage({ imageUrls, interval, size });
     });
 }

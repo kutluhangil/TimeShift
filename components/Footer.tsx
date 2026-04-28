@@ -4,8 +4,6 @@
 */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX } from 'lucide-react';
-import { setMuted } from '../lib/sounds';
 
 const REMIX_IDEAS = [
     "to try different hairstyles.",
@@ -18,7 +16,6 @@ const REMIX_IDEAS = [
 
 const Footer = () => {
     const [index, setIndex] = useState(0);
-    const [muted, setMutedLocal] = useState(false);
 
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -28,12 +25,6 @@ const Footer = () => {
         return () => clearInterval(intervalId);
     }, []);
 
-    const toggleMute = () => {
-        const next = !muted;
-        setMutedLocal(next);
-        setMuted(next);
-    };
-
     return (
         <footer className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-3 z-50 text-neutral-300 text-xs sm:text-sm border-t border-white/10">
             <div className="max-w-screen-xl mx-auto flex justify-between items-center gap-4 px-4">
@@ -41,13 +32,6 @@ const Footer = () => {
                     <p>Powered by Gemini 2.5 Flash</p>
                     <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-300 transition-colors hidden lg:block">Privacy Policy</a>
                     <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-300 transition-colors hidden lg:block">Terms of Service</a>
-                    <button 
-                        onClick={toggleMute} 
-                        className="p-1 hover:bg-white/10 rounded-full transition-colors ml-2"
-                        aria-label={muted ? "Unmute sounds" : "Mute sounds"}
-                    >
-                        {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                    </button>
                 </div>
 
                 {/* Right Side */}

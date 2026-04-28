@@ -10,10 +10,10 @@ import { createAlbumPage, ImageEffect } from './lib/albumUtils';
 import Footer from './components/Footer';
 import LandingPage from './components/LandingPage';
 import { playClickSound, playUploadSound, playShutterSound, playSuccessSound, playRegenerateSound } from './lib/sounds';
-import { Volume2, VolumeX, Settings, X, RotateCcw, Loader2, Edit2 } from 'lucide-react';
+import { Settings, X, RotateCcw, Loader2, Edit2 } from 'lucide-react';
 import { createThumbnail } from './lib/albumUtils';
-import { setMuted } from './lib/sounds';
-import { cn } from './lib/utils';
+import { cn, downloadDataUrlAsFile } from './lib/utils';
+import { get, set, clear } from 'idb-keyval';
 
 const DECADES = [
     '1920s Flapper', 
@@ -86,10 +86,16 @@ const useMediaQuery = (query: string) => {
 };
 
 function App() {
-    const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>(() => {
-        const stored = localStorage.getItem('timeshift_profiles');
-        return stored ? JSON.parse(stored) : [];
-    });
+    const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+
+    useEffect(() => {
+        get('timeshift_profiles').then((val) => {
+            if (val) {
+                setSavedProfiles(val);
+            }
+        });
+    }, []);
+
     const [profileNameInput, setProfileNameInput] = useState('');
     const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -106,7 +112,6 @@ function App() {
     const [gifInterval, setGifInterval] = useState<number>(1.0);
     const [gifSize, setGifSize] = useState<number>(600);
     const [showSettings, setShowSettings] = useState(false);
-    const [soundEnabled, setSoundEnabled] = useState(true);
     const [characterDescription, setCharacterDescription] = useState<string>('');
     const [customPrompt, setCustomPrompt] = useState<string>('');
     const [draggingDecade, setDraggingDecade] = useState<string | null>(null);
@@ -120,12 +125,6 @@ function App() {
 
 
     const [showComparison, setShowComparison] = useState<boolean>(false);
-
-    const toggleSound = () => {
-        const newSound = !soundEnabled;
-        setSoundEnabled(newSound);
-        setMuted(!newSound);
-    };
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -143,7 +142,7 @@ function App() {
         if (loadedProfileId) {
             const updated = savedProfiles.map(p => p.id === loadedProfileId ? { ...p, name: profileNameInput.trim() } : p);
             setSavedProfiles(updated);
-            localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+            await set('timeshift_profiles', updated);
             showToast("Profile name updated!");
         } else {
             const newProfile: SavedProfile = {
@@ -154,7 +153,7 @@ function App() {
             };
             const updated = [...savedProfiles, newProfile];
             setSavedProfiles(updated);
-            localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+            await set('timeshift_profiles', updated);
             setLoadedProfileId(newProfile.id);
             showToast("Profile saved successfully!");
         }
@@ -170,11 +169,11 @@ function App() {
         playUploadSound();
     };
 
-    const handleDeleteProfile = (id: string, e: React.MouseEvent) => {
+    const handleDeleteProfile = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         const updated = savedProfiles.filter(p => p.id !== id);
         setSavedProfiles(updated);
-        localStorage.setItem('timeshift_profiles', JSON.stringify(updated));
+        await set('timeshift_profiles', updated);
     };
 
     const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -183,26 +182,52 @@ function App() {
             setIsUploading(true);
             const file = e.target.files[0];
             const reader = new FileReader();
-            reader.onloadend = async () => {
-                setIsUploading(false);
-                const imgData = reader.result as string;
-                setUploadedImage(imgData);
-                setAppState('image-uploaded');
-                setGeneratedImages({}); // Clear previous results
-                setCharacterDescription('');
-                setLoadedProfileId(null);
-                setProfileNameInput('');
-                
-                setIsAnalyzing(true);
-                try {
-                    const desc = await analyzeCharacterFeatures(imgData);
-                    setCharacterDescription(desc);
-                } catch (error) {
-                    console.error("Failed to analyze character feature", error);
-                    showToast("Failed to analyze portrait features.");
-                } finally {
-                    setIsAnalyzing(false);
-                }
+            reader.onloadend = () => {
+                const img = new Image();
+                img.onload = async () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 800;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(img, 0, 0, width, height);
+                    }
+                    const downsampledDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    setIsUploading(false);
+                    setUploadedImage(downsampledDataUrl);
+                    setAppState('image-uploaded');
+                    setGeneratedImages({}); // Clear previous results
+                    setCharacterDescription('');
+                    setLoadedProfileId(null);
+                    setProfileNameInput('');
+                    
+                    setIsAnalyzing(true);
+                    try {
+                        const desc = await analyzeCharacterFeatures(downsampledDataUrl);
+                        setCharacterDescription(desc);
+                    } catch (error) {
+                        console.error("Failed to analyze character feature", error);
+                        showToast("Failed to analyze portrait features.");
+                    } finally {
+                        setIsAnalyzing(false);
+                    }
+                };
+                img.src = reader.result as string;
             };
             reader.readAsDataURL(file);
         }
@@ -240,7 +265,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
         });
         setGeneratedImages(initialImages);
 
-        const concurrencyLimit = 2; // Process two decades at a time
+        const concurrencyLimit = 1; // Process one decade at a time to prevent rate limits
         const decadesQueue = [...DECADES];
 
         const processDecade = async (decade: string) => {
@@ -324,18 +349,11 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
         setAppState('idle');
     };
 
-    const handleDownloadIndividualImage = (decade: string) => {
-        playClickSound();
+    const handleDownloadIndividualImage = async (decade: string) => {
         if (!window.confirm(`Are you sure you want to download your ${decade} photo?`)) return;
         const image = generatedImages[decade];
         if (image?.status === 'done' && image.url) {
-            const link = document.createElement('a');
-            link.href = image.url;
-            link.download = `timeshift-${decade}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            playSuccessSound();
+            await downloadDataUrlAsFile(image.url, `timeshift-${decade}.jpg`);
         }
     };
 
@@ -353,9 +371,13 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                 });
                 const data = await res.json();
                 if (data.url) {
-                    navigator.clipboard.writeText(window.location.origin + data.url);
-                    showToast("Share link copied to clipboard!");
-                    playSuccessSound();
+                    try {
+                        await navigator.clipboard.writeText(window.location.origin + data.url);
+                        showToast("Share link copied to clipboard!");
+                    } catch {
+                        showToast("Share link: " + window.location.origin + data.url);
+                        console.info("Share Link:", window.location.origin + data.url);
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -367,7 +389,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
     };
 
     const handleShareAlbum = async () => {
-        playClickSound();
         setIsSharing(true);
         try {
             const imageData = Object.entries(generatedImages)
@@ -394,9 +415,14 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
             });
             const data = await res.json();
             if (data.url) {
-                navigator.clipboard.writeText(window.location.origin + data.url);
-                showToast("Album share link copied to clipboard!");
-                playSuccessSound();
+                // Clipboard API might be blocked, let's catch it.
+                try {
+                    await navigator.clipboard.writeText(window.location.origin + data.url);
+                    showToast("Album share link copied to clipboard!");
+                } catch {
+                    showToast("Share album link: " + window.location.origin + data.url);
+                    console.log("Link:", window.location.origin + data.url);
+                }
             }
         } catch (error) {
             console.error("Failed to share album:", error);
@@ -408,8 +434,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
     };
 
     const handleDownloadAlbum = async () => {
-        playClickSound();
-        
         const imageData = Object.entries(generatedImages)
             .filter(([, image]) => image.status === 'done' && image.url)
             .reduce((acc, [decade, image]) => {
@@ -429,14 +453,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
 
             setDownloadProgress(0);
             const albumDataUrl = await createAlbumPage(imageData, setDownloadProgress, effect);
-
-            const link = document.createElement('a');
-            link.href = albumDataUrl;
-            link.download = 'timeshift-album.jpg';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            playSuccessSound();
+            await downloadDataUrlAsFile(albumDataUrl, 'timeshift-album.jpg');
 
         } catch (error) {
             console.error("Failed to create or download album:", error);
@@ -448,8 +465,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
     };
 
     const handleDownloadGif = async () => {
-        playClickSound();
-        
         const imageUrls = DECADES.map(decade => generatedImages[decade]?.url).filter(Boolean) as string[];
         
         if (imageUrls.length < DECADES.length) {
@@ -467,14 +482,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
             // dynamically import gifUtils to avoid loading unused packages
             const { createGifFromImages } = await import('./lib/gifUtils');
             const gifDataUrl = await createGifFromImages(imageUrls, setDownloadProgress, gifInterval, gifSize);
-
-            const link = document.createElement('a');
-            link.href = gifDataUrl;
-            link.download = 'timeshift.gif';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            playSuccessSound();
+            await downloadDataUrlAsFile(gifDataUrl, 'timeshift.gif');
 
         } catch (error) {
             console.error("Failed to create or download GIF:", error);
@@ -531,14 +539,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
             </AnimatePresence>
             
             <div className="absolute top-4 right-4 z-50 flex gap-4">
-                <button 
-                    onClick={toggleSound}
-                    className="p-3 bg-neutral-900 border border-neutral-700/50 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shadow-lg"
-                    title={soundEnabled ? "Mute sounds" : "Enable sounds"}
-                    aria-label={soundEnabled ? "Mute sounds" : "Enable sounds"}
-                >
-                    {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-                </button>
                 <button 
                     onClick={() => setShowSettings(true)}
                     className="p-3 bg-neutral-900 border border-neutral-700/50 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors shadow-lg"
@@ -639,6 +639,24 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                     rows={3}
                                 />
                             </div>
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-neutral-700/50">
+                            <button 
+                                onClick={async () => {
+                                    if (window.confirm("Are you sure you want to clear all saved profiles and local data?")) {
+                                        await clear();
+                                        setSavedProfiles([]);
+                                        setUploadedImage(null);
+                                        setAppState('landing');
+                                        setShowSettings(false);
+                                        showToast("All data cleared successfully.");
+                                    }
+                                }}
+                                className="w-full font-medium text-red-500 bg-red-500/10 py-3 px-4 rounded-lg hover:bg-red-500/20 transition-all text-sm"
+                            >
+                                Clear All Saved Data
+                            </button>
                         </div>
 
                         <button 
@@ -885,8 +903,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                             </button>
                                             <button 
                                                 onClick={async () => {
-                                                    playClickSound();
-                                                    
                                                     const images = DECADES.map(decade => ({
                                                         decade,
                                                         url: generatedImages[decade]?.url
@@ -903,7 +919,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                                     try {
                                                         const { downloadBulkImages } = await import('./lib/zipUtils');
                                                         await downloadBulkImages(images);
-                                                        playSuccessSound();
                                                     } catch (error) {
                                                         console.error("Failed to download zip", error);
                                                         alert("Sorry, there was an error creating your zip. Please try again.");

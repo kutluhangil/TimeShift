@@ -7,7 +7,6 @@
 function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(new Error(`Failed to load image`));
         img.src = src;
@@ -19,7 +18,6 @@ export type ImageEffect = 'none' | 'vintage' | 'bw' | 'sepia';
 export async function createThumbnail(dataUrl: string, maxDim: number = 800): Promise<string> {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.onload = () => {
             const canvas = document.createElement('canvas');
             let width = img.width;

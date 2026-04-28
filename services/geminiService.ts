@@ -97,11 +97,11 @@ async function callGeminiWithRetry(imagePart: object, textPart: object): Promise
         } catch (error) {
             console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
             const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-            const isInternalError = errorMessage.includes('"code":500') || errorMessage.includes('INTERNAL');
+            const isRetryableError = errorMessage.includes('"code":500') || errorMessage.includes('INTERNAL') || errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED');
 
-            if (isInternalError && attempt < maxRetries) {
-                const delay = initialDelay * Math.pow(2, attempt - 1);
-                console.log(`Internal error detected. Retrying in ${delay}ms...`);
+            if (isRetryableError && attempt < maxRetries) {
+                const delay = initialDelay * Math.pow(2, attempt); // Slightly longer exponential backoff
+                console.log(`Retryable error detected. Retrying in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -167,20 +167,25 @@ export async function generateDecadeImage(imageDataUrl: string, prompt: string, 
 
             let specificReason = errorMessage;
             try {
-                 // The google genai SDK often exposes details on the target or error payload.
-                 const errorObj = error as any;
-                 if (errorObj?.statusText) {
-                     specificReason = errorObj.statusText;
-                 }
-                 if (errorObj?.details) {
-                     specificReason = JSON.stringify(errorObj.details);
-                 }
-                 if (errorMessage.includes('{')) {
-                     const match = errorMessage.match(/\{.*\}/s);
-                     if (match) {
-                         const parsed = JSON.parse(match[0]);
-                         if (parsed?.error?.message) {
-                             specificReason = parsed.error.message;
+                 // Clean up 429 errors
+                 if (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+                     specificReason = "API quota exceeded/Rate limited. Please wait a moment and try again.";
+                 } else {
+                     // The google genai SDK often exposes details on the target or error payload.
+                     const errorObj = error as any;
+                     if (errorObj?.statusText) {
+                         specificReason = errorObj.statusText;
+                     }
+                     if (errorObj?.details) {
+                         specificReason = JSON.stringify(errorObj.details);
+                     }
+                     if (errorMessage.includes('{')) {
+                         const match = errorMessage.match(/\{.*\}/s);
+                         if (match) {
+                             const parsed = JSON.parse(match[0]);
+                             if (parsed?.error?.message) {
+                                 specificReason = parsed.error.message;
+                             }
                          }
                      }
                  }
