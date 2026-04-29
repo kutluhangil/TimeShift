@@ -377,7 +377,6 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
     };
 
     const handleDownloadIndividualImage = async (decade: string) => {
-        if (!window.confirm(`Are you sure you want to download your ${decade} photo?`)) return;
         const image = generatedImages[decade];
         if (image?.status === 'done' && image.url) {
             await downloadDataUrlAsFile(image.url, `timeshift-${decade}.jpg`);
@@ -469,11 +468,9 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
             }, {} as Record<string, string>);
 
         if (Object.keys(imageData).length < DECADES.length) {
-            alert("Please wait for all images to finish generating before downloading the album.");
+            showToast("Please wait for all images to finish generating before downloading the album.");
             return;
         }
-
-        if (!window.confirm("Are you sure you want to download the entire album layout?")) return;
 
         setIsDownloading(true);
         try {
@@ -484,7 +481,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
 
         } catch (error) {
             console.error("Failed to create or download album:", error);
-            alert("Sorry, there was an error creating your album. Please try again.");
+            showToast("Sorry, there was an error creating your album. Please try again.");
         } finally {
             setIsDownloading(false);
             setDownloadProgress(0);
@@ -495,11 +492,9 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
         const imageUrls = DECADES.map(decade => generatedImages[decade]?.url).filter(Boolean) as string[];
         
         if (imageUrls.length < DECADES.length) {
-            alert("Please wait for all images to finish generating before downloading the GIF.");
+            showToast("Please wait for all images to finish generating before downloading the GIF.");
             return;
         }
-
-        if (!window.confirm("Are you sure you want to download the animated GIF? (This might take a few moments to generate)")) return;
 
         setIsDownloading(true);
         try {
@@ -513,7 +508,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
 
         } catch (error) {
             console.error("Failed to create or download GIF:", error);
-            alert("Sorry, there was an error creating your GIF. Please try again.");
+            showToast("Sorry, there was an error creating your GIF. Please try again.");
         } finally {
             setIsDownloading(false);
             setDownloadProgress(0);
@@ -1065,11 +1060,9 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                                     })).filter(i => i.url) as { decade: string, url: string }[];
                                                     
                                                     if (images.length < DECADES.length) {
-                                                        alert("Please wait for all images to finish generating before bulk downloading.");
+                                                        showToast("Please wait for all images to finish generating before bulk downloading.");
                                                         return;
                                                     }
-
-                                                    if (!window.confirm("Are you sure you want to download all original photos as a ZIP archive?")) return;
 
                                                     setIsDownloading(true);
                                                     try {
@@ -1077,7 +1070,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                                         await downloadBulkImages(images, cardMetadata);
                                                     } catch (error) {
                                                         console.error("Failed to download zip", error);
-                                                        alert("Sorry, there was an error creating your zip. Please try again.");
+                                                        showToast("Sorry, there was an error creating your zip. Please try again.");
                                                     } finally {
                                                         setIsDownloading(false);
                                                     }
