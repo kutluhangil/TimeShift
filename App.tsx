@@ -87,11 +87,24 @@ const useMediaQuery = (query: string) => {
 
 function App() {
     const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+    const [promptHistory, setPromptHistory] = useState<string[]>([]);
+    const [isMutedState, setIsMutedState] = useState<boolean>(false);
 
     useEffect(() => {
         get('timeshift_profiles').then((val) => {
             if (val) {
                 setSavedProfiles(val);
+            }
+        });
+        get('timeshift_history').then((val) => {
+            if (val) {
+                setPromptHistory(val);
+            }
+        });
+        get('timeshift_muted').then((val) => {
+            if (val !== undefined) {
+                setIsMutedState(val);
+                setMuted(val);
             }
         });
     }, []);
@@ -185,7 +198,6 @@ function App() {
             reader.onloadend = () => {
                 const img = new Image();
                 img.onload = async () => {
-                    const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
                     const maxDim = 800;
@@ -200,13 +212,22 @@ function App() {
                         }
                     }
 
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0, width, height);
+                    let downsampledDataUrl: string;
+                    try {
+                        const { downsampleImageWebGL } = await import('./lib/webglUtils');
+                        downsampledDataUrl = await downsampleImageWebGL(img, width, height);
+                        console.log("Downsampled using WebGL");
+                    } catch (e) {
+                        console.warn("WebGL downsampling failed, falling back to 2D Canvas", e);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0, width, height);
+                        }
+                        downsampledDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                     }
-                    const downsampledDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                     
                     setIsUploading(false);
                     setUploadedImage(downsampledDataUrl);
@@ -250,6 +271,12 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
         playClickSound();
         setIsLoading(true);
         setAppState('generating');
+
+        if (customPrompt.trim()) {
+            const newHistory = [customPrompt.trim(), ...promptHistory.filter(p => p !== customPrompt.trim())].slice(0, 10);
+            setPromptHistory(newHistory);
+            await set('timeshift_history', newHistory);
+        }
         
         let desc = characterDescription;
         if (!desc) {
@@ -512,6 +539,61 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [appState, isDownloading, isSharing, zoomedImage]);
 
+    const [isRecording, setIsRecording] = useState<boolean>(false);
+
+    const handleVoiceRecord = () => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            showToast("Voice input is not supported in your browser.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            setIsRecording(true);
+            playClickSound();
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setCharacterDescription((prev) => (prev.trim() ? prev + " " + transcript : transcript));
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            showToast("Speech recognition error.");
+        };
+
+        recognition.onend = () => {
+            setIsRecording(false);
+            playClickSound();
+        };
+
+        recognition.start();
+    };
+
+    const LoadingOverlay = () => {
+        if (!isDownloading && !isSharing) return null;
+        return (
+            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+                <div className="bg-neutral-900 border border-neutral-700/50 p-8 rounded-2xl flex flex-col items-center shadow-2xl relative max-w-sm w-full text-center">
+                    <Loader2 size={48} className="animate-spin text-amber-500 mb-6" />
+                    <h3 className="text-xl font-bold text-white mb-2">{isDownloading ? "Preparing File(s)" : "Generating Share Link"}</h3>
+                    <p className="text-neutral-400 text-sm mb-4">Please wait while we process the images.</p>
+                    {downloadProgress > 0 && downloadProgress < 100 && (
+                        <div className="w-full bg-neutral-800 rounded-full h-2.5 mt-2">
+                           <div className="bg-amber-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${downloadProgress}%` }}></div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     if (appState === 'landing') {
         return (
             <LandingPage onStart={() => setAppState('idle')} />
@@ -520,6 +602,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
 
     return (
         <main className="bg-black text-white font-sans min-h-screen w-full flex flex-col items-center justify-center p-4 pb-24 overflow-hidden relative">
+            <LoadingOverlay />
             <div className="absolute inset-0 bg-gradient-to-b from-neutral-900 via-black to-black opacity-80 z-0 pointer-events-none"></div>
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full z-0 pointer-events-none"></div>
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full z-0 pointer-events-none"></div>
@@ -563,7 +646,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                         
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">Image Effect</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    Image Effect
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Apply a visual filter to the entire generated album grid and polaroid borders.">ⓘ</span>
+                                </label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
                                     value={effect}
@@ -577,7 +663,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">GIF Speed (Seconds per Frame)</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    GIF Speed (Seconds per Frame)
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Controls how fast the animated GIF transitions between decades.">ⓘ</span>
+                                </label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
                                     value={gifInterval}
@@ -591,7 +680,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">GIF Resolution</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    GIF Resolution
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Select the output dimensions for the animated GIF. Higher resolutions make files larger.">ⓘ</span>
+                                </label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
                                     value={gifSize}
@@ -603,7 +695,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">Color Palette</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    Color Palette
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Directs the AI to focus heavily on a specific color mood during generation.">ⓘ</span>
+                                </label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
                                     value={colorPalette}
@@ -617,7 +712,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">Aspect Ratio</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    Aspect Ratio
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="The crop/shape of the generated images. Note that polaroids look best with 1:1.">ⓘ</span>
+                                </label>
                                 <select 
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all"
                                     value={aspectRatio}
@@ -630,7 +728,10 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-2">Custom Generation Prompt (Optional)</label>
+                                <label className="block flex items-center text-sm font-medium text-neutral-300 mb-2">
+                                    Custom Generation Prompt (Optional)
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Add extra instructions to customize your generations, like 'wearing a cowboy hat'.">ⓘ</span>
+                                </label>
                                 <textarea
                                     className="w-full bg-black/50 border border-neutral-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-white/20 outline-none transition-all resize-none"
                                     placeholder="e.g. In a cyberpunk futuristic city, holding a glowing orb"
@@ -638,6 +739,46 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                     onChange={(e) => setCustomPrompt(e.target.value)}
                                     rows={3}
                                 />
+                                {promptHistory.length > 0 && (
+                                    <div className="mt-3">
+                                        <label className="block flex items-center text-xs font-medium text-neutral-500 mb-2">
+                                            Recent Prompts
+                                            <span className="ml-2 text-neutral-600 cursor-help" title="Click a previous prompt to reuse it.">ⓘ</span>
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {promptHistory.map((prompt, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setCustomPrompt(prompt)}
+                                                    className="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-2 py-1 rounded transition-colors text-left max-w-full truncate"
+                                                    title={prompt}
+                                                >
+                                                    {prompt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                                <label className="flex items-center text-sm font-medium text-neutral-300">
+                                    App Sounds
+                                    <span className="ml-2 text-neutral-500 cursor-help" title="Enable or disable UI sound effects globally.">ⓘ</span>
+                                </label>
+                                <button
+                                    onClick={async () => {
+                                        const newMuted = !isMutedState;
+                                        setIsMutedState(newMuted);
+                                        setMuted(newMuted);
+                                        await set('timeshift_muted', newMuted);
+                                        playClickSound(); // If we just unmuted, this will play.
+                                    }}
+                                    className={cn("p-2 rounded-full transition-colors", isMutedState ? "bg-red-500/20 text-red-400" : "bg-neutral-800 text-white")}
+                                    aria-label="Toggle Sounds"
+                                >
+                                    {isMutedState ? "Muted" : "On"}
+                                </button>
                             </div>
                         </div>
 
@@ -647,6 +788,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                     if (window.confirm("Are you sure you want to clear all saved profiles and local data?")) {
                                         await clear();
                                         setSavedProfiles([]);
+                                        setPromptHistory([]);
                                         setUploadedImage(null);
                                         setAppState('landing');
                                         setShowSettings(false);
@@ -781,7 +923,21 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
 
                          {characterDescription && (
                             <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 backdrop-blur-md">
-                                <p className="text-white/80 text-sm leading-relaxed">{characterDescription}</p>
+                                <div className="flex items-start gap-2">
+                                    <textarea 
+                                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white/80 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-white/30"
+                                        rows={3}
+                                        value={characterDescription}
+                                        onChange={(e) => setCharacterDescription(e.target.value)}
+                                    />
+                                    <button 
+                                        onClick={handleVoiceRecord}
+                                        className={cn("p-3 rounded-lg flex-shrink-0 transition-all", isRecording ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-black/50 border border-white/10 text-white/60 hover:text-white hover:bg-white/10")}
+                                        title={isRecording ? "Recording..." : "Dictate modifications"}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                                    </button>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <input 
                                         type="text" 
@@ -918,7 +1074,7 @@ ${customPrompt ? `5. Additional specific instructions: ${customPrompt}\n` : ''}$
                                                     setIsDownloading(true);
                                                     try {
                                                         const { downloadBulkImages } = await import('./lib/zipUtils');
-                                                        await downloadBulkImages(images);
+                                                        await downloadBulkImages(images, cardMetadata);
                                                     } catch (error) {
                                                         console.error("Failed to download zip", error);
                                                         alert("Sorry, there was an error creating your zip. Please try again.");

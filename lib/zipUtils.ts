@@ -1,6 +1,6 @@
 import ZipWorker from './zipWorker?worker';
 
-export async function downloadBulkImages(images: { decade: string, url: string }[]): Promise<void> {
+export async function downloadBulkImages(images: { decade: string, url: string }[], metadata?: any): Promise<void> {
     return new Promise((resolve, reject) => {
         const worker = new ZipWorker();
         worker.onmessage = (e) => {
@@ -26,6 +26,6 @@ export async function downloadBulkImages(images: { decade: string, url: string }
             worker.terminate();
             reject(err);
         };
-        worker.postMessage(images);
+        worker.postMessage({ images, metadata });
     });
 }

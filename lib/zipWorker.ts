@@ -2,10 +2,10 @@ import JSZip from 'jszip';
 
 self.onmessage = async (e) => {
     try {
-        const images: { decade: string, url: string }[] = e.data;
+        const { images, metadata } = e.data;
         const zip = new JSZip();
         
-        await Promise.all(images.map(async (img) => {
+        await Promise.all(images.map(async (img: { decade: string, url: string }) => {
             if (!img.url) return;
             try {
                 const response = await fetch(img.url);
@@ -15,6 +15,10 @@ self.onmessage = async (e) => {
                 console.error(`Failed to fetch ${img.decade}`, err);
             }
         }));
+
+        if (metadata) {
+            zip.file('metadata.json', JSON.stringify(metadata, null, 2));
+        }
         
         const content = await zip.generateAsync({ type: 'blob' });
         self.postMessage({ type: 'success', blob: content });
