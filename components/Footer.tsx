@@ -2,29 +2,10 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-
-const REMIX_IDEAS = [
-    "to try different hairstyles.",
-    "to turn your pet into a cartoon character.",
-    "to create a fantasy version of yourself.",
-    "to design a superhero based on your photo.",
-    "to place yourself in famous historical events.",
-    "to generate a custom video game avatar.",
-];
+import React from 'react';
+import { Github, Linkedin } from 'lucide-react';
 
 const Footer = () => {
-    const [index, setIndex] = useState(0);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            setIndex(prevIndex => (prevIndex + 1) % REMIX_IDEAS.length);
-        }, 3500); // Change text every 3.5 seconds
-
-        return () => clearInterval(intervalId);
-    }, []);
-
     return (
         <footer className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-3 z-50 text-neutral-300 text-xs sm:text-sm border-t border-white/10">
             <div className="max-w-screen-xl mx-auto flex justify-between items-center gap-4 px-4">
@@ -35,41 +16,32 @@ const Footer = () => {
                 </div>
 
                 {/* Right Side */}
-                <div className="flex-grow flex justify-end items-center gap-4 sm:gap-6">
-                    <div className="hidden lg:flex items-center gap-2 text-neutral-400 text-right min-w-0">
-                        <span className="flex-shrink-0">Remix this app...</span>
-                        <div className="relative w-64 h-5">
-                            <AnimatePresence mode="wait">
-                                <motion.span
-                                    key={index}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    transition={{ duration: 0.4, ease: "easeInOut" }}
-                                    className="absolute inset-0 font-medium text-neutral-200 whitespace-nowrap text-left"
-                                >
-                                    {REMIX_IDEAS[index]}
-                                </motion.span>
-                            </AnimatePresence>
-                        </div>
+                <div className="flex-grow flex justify-end items-center gap-6">
+                    <div className="text-neutral-400 text-sm">
+                        <span>Designed by </span>
+                        <span className="font-medium text-neutral-200">kutluhangil</span>
                     </div>
 
-                    <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-3">
                         <a
-                            href="https://aistudio.google.com/apps"
+                            href="https://github.com/kutluhangil"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm sm:text-base text-center text-black bg-white/90 backdrop-blur-md py-2 px-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:bg-white shadow-[0_4px_14px_rgba(255,255,255,0.2)] whitespace-nowrap"
+                            className="text-neutral-400 hover:text-white transition-colors duration-300 hover:scale-110"
+                            title="GitHub"
+                            aria-label="GitHub"
                         >
-                            Apps on AI Studio
+                            <Github className="w-5 h-5" />
                         </a>
                         <a
-                            href="https://gemini.google.com/"
+                            href="https://www.linkedin.com/in/kutluhangil/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm sm:text-base text-center text-white bg-white/10 backdrop-blur-sm border border-white/20 py-2 px-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:bg-white/20 whitespace-nowrap"
+                            className="text-neutral-400 hover:text-white transition-colors duration-300 hover:scale-110"
+                            title="LinkedIn"
+                            aria-label="LinkedIn"
                         >
-                            Chat with Gemini
+                            <Linkedin className="w-5 h-5" />
                         </a>
                     </div>
                 </div>
