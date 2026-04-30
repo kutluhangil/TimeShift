@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+.font-caveat {
+  font-family: 'Caveat', cursive;
+}
+
+.font-permanent-marker {
+  font-family: 'Permanent Marker', cursive;
+}

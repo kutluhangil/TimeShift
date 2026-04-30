@@ -5,10 +5,10 @@
 import { GoogleGenAI } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 
-const API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
+const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
 
 if (!API_KEY) {
-  throw new Error("GEMINI_API_KEY environment variable is not set");
+  throw new Error("GEMINI_API_KEY environment variable is not set. Please set VITE_GEMINI_API_KEY in your environment or Vercel dashboard.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
