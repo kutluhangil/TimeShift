@@ -1,207 +1,63 @@
 <div align="center">
 
-<br />
+<img src="docs/media/hero.svg" alt="TimeShift — your face across the decades" width="100%">
 
-<img src="https://img.shields.io/badge/TimeShift-v1.0-000000?style=for-the-badge&logoColor=white" alt="version" />
-<img src="https://img.shields.io/badge/Built_with-TypeScript-3178c6?style=for-the-badge&logo=typescript&logoColor=white" alt="typescript" />
-<img src="https://img.shields.io/badge/React-18-000000?style=for-the-badge&logo=react&logoColor=white" alt="react" />
-<img src="https://img.shields.io/badge/Vite-Build-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="vite" />
-<img src="https://img.shields.io/badge/TailwindCSS-v3-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="tailwind" />
-<img src="https://img.shields.io/badge/Framer_Motion-Animated-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="framer" />
+<p>
+  <a href="https://time-shift-eight.vercel.app"><img alt="Live" src="https://img.shields.io/badge/live-step%20into%20the%20past-e8a35b?style=for-the-badge&labelColor=0b0807"></a>
+  <img alt="Gemini" src="https://img.shields.io/badge/Gemini-image%20generation-d65f5f?style=for-the-badge&labelColor=0b0807">
+  <img alt="React" src="https://img.shields.io/badge/React-Framer%20Motion-7fb3a3?style=for-the-badge&labelColor=0b0807">
+  <img alt="Eras" src="https://img.shields.io/badge/eras-1950s%20%E2%86%92%202000s-e8a35b?style=for-the-badge&labelColor=0b0807">
+</p>
 
-<br /><br />
-
-```text
- ████████╗██╗███╗   ███╗███████╗███████╗██╗  ██╗██╗███████╗████████╗
- ╚══██╔══╝██║████╗ ████║██╔════╝██╔════╝██║  ██║██║██╔════╝╚══██╔══╝
-    ██║   ██║██╔████╔██║█████╗  ███████╗███████║██║█████╗     ██║   
-    ██║   ██║██║╚██╔╝██║██╔══╝  ╚════██║██╔══██║██║██╔══╝     ██║   
-    ██║   ██║██║ ╚═╝ ██║███████╗███████║██║  ██║██║██║        ██║   
-    ╚═╝   ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   
-```
-
-### **Your Face. Across the Decades.** — AI-Powered Time Travel in seconds.
-
-[Live App](#) · [Report Bug](#) · [Request Feature](#)
+<p><em>Upload one portrait and watch AI reimagine it as photorealistic vintage polaroids,<br>
+from the 1950s to the 2000s, in authentic era-specific style.</em></p>
 
 </div>
 
----
+<img src="docs/media/divider.svg" width="100%" alt="">
 
-## ✦ What is TimeShift?
+## Features
 
-**TimeShift** is an AI-powered experience that transforms your portrait into photorealistic vintage polaroids across different decades (from the 1950s to the 2000s).
+| | |
+|---|---|
+| **Decade transformation** | One photo, six eras: the 50s, 60s, 70s, 80s, 90s and 00s. |
+| **Interactive polaroids** | Drag the cards around with realistic physics, snapping and soft shadows. |
+| **Sound** | Subtle shutter clicks and drag sounds. |
+| **Albums** | Grid and collage layouts with vintage and sepia effects, rendered on canvas and downloadable. |
+| **GIF and ZIP** | Turn the set into an animated GIF or download every frame. |
+| **Sharing** | One-click links with generated Open Graph thumbnails. |
+| **Premium UI** | Deep blacks, animated mesh gradients and noise textures, on desktop and mobile. |
 
-Step into the ultimate time machine journey. Simply upload a single photo, and watch the AI reimagine your face in authentic, era-specific classical styles. Built for seamless interactivity, immersive audio, and a visually striking **"Premium Dark"** aesthetic.
-
----
-
-<details>
-<summary><strong>🇹🇷 Türkçe Açıklama</strong></summary>
-
-<br />
-
-**TimeShift**, portrenizi 1950'lerden 2000'lere kadar farklı on yıllara ait fotogerçekçi vintage polaroidlere dönüştüren yapay zeka destekli bir deneyimdir.
-
-Sıradan filtrelerin ötesine geçerek en üst düzey zaman makinesi yolculuğuna adım atın. Sadece tek bir fotoğraf yükleyin ve yapay zekanın yüzünüzü o dönemin otantik stilleriyle yeniden hayal etmesini izleyin. Akıcı bir etkileşim, sürükleyici ses efektleri ve göz alıcı **"Premium Dark"** karanlık arayüz ile tasarlandı.
-
-</details>
-
----
-
-## ⚡ Features
-
-| Feature | Description |
-|---------|-------------|
-| ⏳ **Decade Transformation** | Reimagines a single uploaded photo across 6 distinct eras (50s, 60s, 70s, 80s, 90s, 00s) |
-| 📸 **Interactive Polaroids** | Drag-and-drop polaroid cards with realistic physics, snap-to-grid, and subtle spatial shadows |
-| 🎵 **Immersive Audio** | Thematic, non-intrusive sound effects for shutter clicks, drag & drop interactions, and UI toggles |
-| 🎨 **Dynamic Albums** | Generate downloadable multi-layout (Grid, Collage) albums with vintage/sepia FX on HTML Canvas |
-| 🔗 **Social Sharing** | One-click share links with auto-generated optimal thumbnails for OpenGraph (Twitter/Discord) previews |
-| 🌑 **Premium UI** | Deep black aesthetics featuring animated mesh gradients, noise textures, and Framer Motion orchestrations |
-| 📱 **Responsive Design** | Custom desktop physics and mobile-first scrolling lists tailored perfectly to your device view |
-
----
-
-## 🖼️ Screenshots
-
-> *(Coming soon — High-quality mockups of the TimeShift interface)*
-
----
-
-## 🛠️ Tech Stack
-
-```text
-Frontend        →  React 18 · TypeScript (strict) · Tailwind CSS v3 · Framer Motion
-Build Tool      →  Vite (Fast HMR & Optimized Bundling)
-UI Elements     →  Lucide React Icons · Headless structure
-Animations      →  Framer Motion (Drag elasticity, Layout transisitons, Spring physics)
-Rendering       →  HTML5 Canvas API (Thumbnails & Album Compositing)
-Audio Engine    →  Web Audio API (Synthesized & Spatial sound generation)
-Server          →  Express.js (Share link proxy & OG meta-tag injection)
+```mermaid
+flowchart LR
+  U[Upload portrait] --> G[Gemini · six era prompts]
+  G --> P[Polaroid cards · physics]
+  P --> A[Album · canvas FX]
+  P --> GIF[gifshot · animated GIF]
+  P --> Z[JSZip · all frames]
+  P --> S[Share link · OG image]
+  P <--> IDB[(IndexedDB · local)]
 ```
 
----
+<img src="docs/media/divider.svg" width="100%" alt="">
 
-## 🏗️ Architecture
+## Türkçe özet
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│                         TIMESHIFT APP                            │
-│                                                                  │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐ │
-│  │  React 18     │  │  Vite Build   │  │    Framer Motion      │ │
-│  │  Client SPA   │  │  Optimized    │  │  Physics & Animations │ │
-│  └───────────────┘  └───────────────┘  └───────────────────────┘ │
-└───────────────────────────┬──────────────────────────────────────┘
-                            │ (Client Rendered + Animations)
-         ┌──────────────────┼──────────────────┐
-         │                  │                  │
-┌────────────────┐  ┌───────────────┐  ┌───────────────────┐
-│   Images Gen   │  │ Express Node  │  │   Canvas Engine   │
-│  (API Proxies  │  │ (Share Links  │  │ (Album Creation & │
-│   & Prompts)   │  │  & OG Tags)   │  │   Thumbnails)     │
-└────────────────┘  └───────────────┘  └───────────────────┘
-```
+**TimeShift**, tek bir portre fotoğrafını 1950'lerden 2000'lere altı farklı on yıla ait fotogerçekçi vintage polaroidlere dönüştüren yapay zekâ destekli bir deneyim. Polaroid kartları fizikle sürükleyip dizebilir, sonucu albüm, GIF ya da ZIP olarak indirebilir ve tek tıkla paylaşabilirsin.
 
----
+<img src="docs/media/divider.svg" width="100%" alt="">
 
-## 📐 Project Structure
+## Development
 
-```text
-TimeShift/
-├── public/                 # Static assets
-├── src/
-│   ├── components/         # React Components
-│   │   ├── ui/             # Reusable base elements (DraggableCard)
-│   │   ├── Footer.tsx      # Application footer
-│   │   ├── LandingPage.tsx # Premium animated intro screen
-│   │   ├── PolaroidCard.tsx# Interactive image cards
-│   │   └── ShareView.tsx   # Public timeline viewer
-│   ├── lib/                # Utilities and core logic
-│   │   ├── albumUtils.ts   # Canvas layout generation & filters
-│   │   ├── sounds.ts       # Web Audio API synthesizers
-│   │   └── utils.ts        # Tailwind `cn` helper
-│   ├── App.tsx             # Main view orchestration mapping
-│   ├── index.css           # Tailwind injection & global fonts
-│   └── main.tsx            # React application entry point
-├── server.ts               # Express server (SSR OG Tags + file proxy)
-├── package.json            # Scripts & Dependencies
-├── tailwind.config.js      # Styling configuration
-├── tsconfig.json           # TS rules
-└── vite.config.ts          # Vite bundler settings
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js `>= 18`
-- npm or yarn
-
-### Local Development
-
-```bash
-# Clone the repository
-git clone https://github.com/kutluhangil/TimeShift.git
-cd TimeShift
-
-# Install dependencies
+```sh
 npm install
-
-# Start the dev server
-npm run dev
+cp .env.example .env.local   # GEMINI_API_KEY
+npm run dev                  # Express + Vite
+npm run build
 ```
-
-App runs at `http://localhost:3000`.
-
-### Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Development server via `tsx` (Starts Express + Vite middleware) |
-| `npm run build` | Optimizes assets and prepares production build in `/dist` |
-| `npm run lint` | ESLint static code analysis |
-
----
-
-## 🔒 State & Asset Management
-
-| Layer | Implementation |
-|-------|----------------|
-| **Asset Storage** | Rendered memories are saved server-side using the `fs` API and mapped to UUIDs |
-| **OG Proxying** | Express intercepts `/share/:id` to inject rich meta tags based on the generated thumbnail |
-| **Canvas** | High-resolution compositing prevents CORS taint by properly handling `crossOrigin` bounds |
-| **Audio** | Safe `AudioContext` booting requires explicit user gestures to bypass standard browser autoplay blockers |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open an issue or submit a pull request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for details.
-
----
 
 <div align="center">
-
-Built with precision by [kutluhangil](https://github.com/kutluhangil)
-
-<br />
-
-*If you find this useful, consider giving it a ⭐*
-
+<br>
+<a href="https://github.com/kutluhangil"><img src="docs/media/signature.svg" width="100%" alt="Built by kutluhangil"></a>
+<sub>Same face. Different decade.</sub>
 </div>
